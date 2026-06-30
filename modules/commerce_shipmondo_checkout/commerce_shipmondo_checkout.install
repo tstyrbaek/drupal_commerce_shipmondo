@@ -22,6 +22,7 @@ function commerce_shipmondo_checkout_install(): void {
     'widget' => 'shipmondo_service_point_selector',
     'description' => t('Select a pickup location for this shipment. The value is copied automatically from the order when carriers match.'),
   ]);
+  _commerce_shipmondo_checkout_enable_service_point_checkout_pane();
 }
 
 /**
@@ -270,6 +271,35 @@ function _commerce_shipmondo_checkout_migrate_service_point_order_data(): void {
 
     $order->set('shipmondo_service_point', json_encode($legacy, JSON_UNESCAPED_UNICODE));
     $order->save();
+  }
+}
+
+/**
+ * Enables the service point checkout pane on existing checkout flows.
+ */
+function commerce_shipmondo_checkout_update_9007(): void {
+  _commerce_shipmondo_checkout_enable_service_point_checkout_pane();
+}
+
+/**
+ * Enables the Shipmondo service point pane on checkout flows.
+ */
+function _commerce_shipmondo_checkout_enable_service_point_checkout_pane(): void {
+  $pane_id = 'commerce_shipmondo_service_point';
+  $storage = \Drupal::entityTypeManager()->getStorage('commerce_checkout_flow');
+  foreach ($storage->loadMultiple() as $checkout_flow) {
+    $configuration = $checkout_flow->getPlugin()->getConfiguration();
+    if (isset($configuration['panes'][$pane_id])) {
+      continue;
+    }
+
+    $configuration['panes'][$pane_id] = [
+      'step' => 'order_information',
+      'weight' => 5,
+      'carrier_mapping' => [],
+    ];
+    $checkout_flow->set('configuration', $configuration);
+    $checkout_flow->save();
   }
 }
 

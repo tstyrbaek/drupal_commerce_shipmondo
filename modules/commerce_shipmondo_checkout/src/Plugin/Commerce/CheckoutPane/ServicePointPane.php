@@ -4,7 +4,6 @@ namespace Drupal\commerce_shipmondo_checkout\Plugin\Commerce\CheckoutPane;
 
 use Drupal\address\Plugin\Field\FieldType\AddressItem;
 use Drupal\Component\Utility\NestedArray;
-use Drupal\commerce_checkout\Attribute\CommerceCheckoutPane;
 use Drupal\commerce_checkout\Plugin\Commerce\CheckoutPane\CheckoutPaneBase;
 use Drupal\commerce_shipmondo\Exception\ShipmondoApiException;
 use Drupal\commerce_shipmondo\Service\ShippingMethodMapping;
@@ -13,21 +12,21 @@ use Drupal\commerce_shipping\Entity\ShipmentInterface;
 use Drupal\commerce_shipping\Entity\ShippingMethodInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Language\LanguageManagerInterface;
-use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\Core\Url;
 use Drupal\profile\Entity\ProfileInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
  * Provides a service point selector pane for checkout.
+ *
+ * @CommerceCheckoutPane(
+ *   id = "commerce_shipmondo_service_point",
+ *   label = @Translation("Shipmondo service point"),
+ *   admin_description = @Translation("Lets the customer choose a Shipmondo service point for pickup."),
+ *   default_step = "order_information",
+ *   wrapper_element = "fieldset",
+ * )
  */
-#[CommerceCheckoutPane(
-  id: 'commerce_shipmondo_service_point',
-  label: new TranslatableMarkup('Shipmondo service point'),
-  admin_description: new TranslatableMarkup('Lets the customer choose a Shipmondo service point for pickup.'),
-  default_step: 'order_information',
-  wrapper_element: 'fieldset',
-)]
 class ServicePointPane extends CheckoutPaneBase {
 
   /**

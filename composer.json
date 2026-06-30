@@ -3,7 +3,7 @@
   "type": "drupal-custom-module",
   "description": "Creates Shipmondo shipping labels from Drupal Commerce orders.",
   "license": "GPL-2.0-or-later",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "require": {
     "drupal/core": "^10 || ^11",
     "drupal/commerce": "^2",

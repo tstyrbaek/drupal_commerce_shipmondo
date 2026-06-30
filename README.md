@@ -160,7 +160,7 @@ På ordresiden vises sektionen **Shipmondo labels** med shipment-ID og tracking 
 
 Med `commerce_shipmondo_checkout` aktiveret:
 
-1. Tilføj checkout-pane **Shipmondo service point** til checkout flow (typisk på *Order information*).
+1. Checkout-pane **Shipmondo service point** tilføjes automatisk til checkout flows ved installation (trin *Order information*). Eksisterende sites: kør `drush updb -y && drush cr`.
 2. Map hver fragtmetode til en Shipmondo carrier-kode i pane-konfigurationen.
 3. Kunden vælger pakkeshop via React-komponenten (kort + liste).
 4. Valget gemmes på ordren og kopieres til matchende forsendelser.
