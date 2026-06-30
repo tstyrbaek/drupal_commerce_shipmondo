@@ -1,0 +1,127 @@
+<?php
+
+/**
+ * @file
+ * Install and update hooks for Commerce Shipmondo.
+ */
+
+/**
+ * Ensures shipping method mapping config exists.
+ */
+function commerce_shipmondo_update_9001(): void {
+  $config = \Drupal::configFactory()->getEditable('commerce_shipmondo.shipping_methods');
+  if ($config->isNew()) {
+    $config->set('mappings', [])->save(TRUE);
+  }
+}
+
+/**
+ * Adds default Shipmondo service codes for products that require EMAIL_NT.
+ */
+function commerce_shipmondo_update_9002(): void {
+  $config = \Drupal::configFactory()->getEditable('commerce_shipmondo.settings');
+  if ($config->get('default_service_codes') === NULL) {
+    $config->set('default_service_codes', 'EMAIL_NT')->save(TRUE);
+  }
+}
+
+/**
+ * Adds optional receiver contact field configuration.
+ */
+function commerce_shipmondo_update_9003(): void {
+  $config = \Drupal::configFactory()->getEditable('commerce_shipmondo.settings');
+  if ($config->get('receiver_phone_field') === NULL) {
+    $config->set('receiver_phone_field', '')->save(TRUE);
+  }
+  if ($config->get('receiver_email_field') === NULL) {
+    $config->set('receiver_email_field', '')->save(TRUE);
+  }
+}
+
+/**
+ * Replaces deprecated test_mode with use_sandbox for Shipmondo API v3.
+ */
+function commerce_shipmondo_update_9004(): void {
+  $config = \Drupal::configFactory()->getEditable('commerce_shipmondo.settings');
+  if ($config->get('use_sandbox') === NULL) {
+    $config->set('use_sandbox', (bool) $config->get('test_mode'))->save(TRUE);
+  }
+}
+
+/**
+ * Adds frontend key configuration for Shipping Module API.
+ */
+function commerce_shipmondo_update_9005(): void {
+  $config = \Drupal::configFactory()->getEditable('commerce_shipmondo.settings');
+  if ($config->get('frontend_key_key') === NULL) {
+    $config->set('frontend_key_key', '')->save(TRUE);
+  }
+}
+
+/**
+ * Adds default receiver country for Shipmondo product catalog filtering.
+ */
+function commerce_shipmondo_update_9006(): void {
+  $config = \Drupal::configFactory()->getEditable('commerce_shipmondo.settings');
+  if ($config->get('default_receiver_country_code') === NULL) {
+    $config->set('default_receiver_country_code', 'DK')->save(TRUE);
+  }
+}
+
+/**
+ * Backfills shipment tracking codes from stored Shipmondo metadata.
+ */
+/**
+ * Backfills stored Shipmondo tracking URLs on existing shipments.
+ */
+function commerce_shipmondo_update_9008(): void {
+  $builder = \Drupal::service('commerce_shipmondo.tracking_url_builder');
+  $storage = \Drupal::entityTypeManager()->getStorage('commerce_shipment');
+
+  foreach ($storage->loadMultiple($storage->getQuery()->accessCheck(FALSE)->execute()) as $shipment) {
+    $data = $shipment->getData('commerce_shipmondo') ?? [];
+    if ($data === [] || !empty($data['tracking_url'])) {
+      continue;
+    }
+
+    $carrier_code = trim((string) ($data['carrier_code'] ?? ''));
+    $tracking_number = trim((string) ($data['tracking_number'] ?? $shipment->getTrackingCode() ?? ''));
+    if ($carrier_code === '' || $tracking_number === '') {
+      continue;
+    }
+
+    $data['tracking_url'] = $builder->buildUri($carrier_code, $tracking_number);
+    $shipment->setData('commerce_shipmondo', $data);
+    $shipment->save();
+  }
+}
+
+/**
+ * Removes deprecated fallback weight setting.
+ */
+function commerce_shipmondo_update_9009(): void {
+  $config = \Drupal::configFactory()->getEditable('commerce_shipmondo.settings');
+  if ($config->get('fallback_weight') !== NULL) {
+    $config->clear('fallback_weight')->save(TRUE);
+  }
+}
+
+/**
+ * Backfills shipment tracking codes from stored Shipmondo metadata.
+ */
+function commerce_shipmondo_update_9007(): void {
+  $storage = \Drupal::entityTypeManager()->getStorage('commerce_shipment');
+  $shipment_ids = $storage->getQuery()
+    ->accessCheck(FALSE)
+    ->execute();
+
+  foreach ($storage->loadMultiple($shipment_ids) as $shipment) {
+    $data = $shipment->getData('commerce_shipmondo') ?? [];
+    $tracking_number = trim((string) ($data['tracking_number'] ?? ''));
+    if ($tracking_number === '' || $shipment->getTrackingCode()) {
+      continue;
+    }
+    $shipment->setTrackingCode($tracking_number);
+    $shipment->save();
+  }
+}

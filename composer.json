@@ -1,0 +1,16 @@
+{
+  "name": "tstyrbaek/commerce_shipmondo",
+  "type": "drupal-custom-module",
+  "description": "Creates Shipmondo shipping labels from Drupal Commerce orders.",
+  "license": "GPL-2.0-or-later",
+  "version": "1.0.0",
+  "require": {
+    "drupal/core": "^10 || ^11",
+    "drupal/commerce": "^2",
+    "drupal/commerce_shipping": "^2",
+    "drupal/profile": "^1",
+    "drupal/address": "^1 || ^2",
+    "drupal/key": "^1",
+    "drupal/physical": "^1"
+  }
+}

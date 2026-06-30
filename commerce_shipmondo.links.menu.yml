@@ -1,0 +1,6 @@
+commerce_shipmondo.settings:
+  title: 'Shipmondo'
+  description: 'Configure Shipmondo API credentials and sender details.'
+  route_name: commerce_shipmondo.settings
+  parent: commerce.configuration
+  weight: 50

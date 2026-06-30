@@ -1,0 +1,61 @@
+{
+  "service_points": [
+    {
+      "id": "87654",
+      "name": "Kvickly Odense C",
+      "address": "Vestergade 32",
+      "zipcode": "5000",
+      "city": "Odense C",
+      "distance": 312,
+      "longitude": 10.3839,
+      "latitude": 55.3959,
+      "opening_hours": [
+        { "day": "Mandag", "open": "08:00", "close": "21:00" },
+        { "day": "Tirsdag", "open": "08:00", "close": "21:00" },
+        { "day": "Onsdag", "open": "08:00", "close": "21:00" },
+        { "day": "Torsdag", "open": "08:00", "close": "21:00" },
+        { "day": "Fredag", "open": "08:00", "close": "21:00" },
+        { "day": "Lørdag", "open": "08:00", "close": "18:00" },
+        { "day": "Søndag", "open": "10:00", "close": "17:00" }
+      ]
+    },
+    {
+      "id": "87655",
+      "name": "GLS PakkeShop - Netto Dalumvej",
+      "address": "Dalumvej 45",
+      "zipcode": "5250",
+      "city": "Odense SV",
+      "distance": 1840,
+      "longitude": 10.3456,
+      "latitude": 55.3721,
+      "opening_hours": [
+        { "day": "Mandag", "open": "07:00", "close": "22:00" },
+        { "day": "Tirsdag", "open": "07:00", "close": "22:00" },
+        { "day": "Onsdag", "open": "07:00", "close": "22:00" },
+        { "day": "Torsdag", "open": "07:00", "close": "22:00" },
+        { "day": "Fredag", "open": "07:00", "close": "22:00" },
+        { "day": "Lørdag", "open": "08:00", "close": "20:00" },
+        { "day": "Søndag", "open": "10:00", "close": "18:00" }
+      ]
+    },
+    {
+      "id": "87656",
+      "name": "PostNord Servicepoint - Fakta Munkebo",
+      "address": "Bogensevej 12",
+      "zipcode": "5330",
+      "city": "Munkebo",
+      "distance": 4200,
+      "longitude": 10.5123,
+      "latitude": 55.4512,
+      "opening_hours": [
+        { "day": "Mandag", "open": "08:00", "close": "20:00" },
+        { "day": "Tirsdag", "open": "08:00", "close": "20:00" },
+        { "day": "Onsdag", "open": "08:00", "close": "20:00" },
+        { "day": "Torsdag", "open": "08:00", "close": "20:00" },
+        { "day": "Fredag", "open": "08:00", "close": "20:00" },
+        { "day": "Lørdag", "open": "09:00", "close": "16:00" },
+        { "day": "Søndag", "open": null, "close": null }
+      ]
+    }
+  ]
+}

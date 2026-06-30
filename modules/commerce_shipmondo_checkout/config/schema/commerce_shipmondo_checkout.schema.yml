@@ -1,0 +1,15 @@
+commerce_shipmondo_checkout.carrier_mapping:
+  type: mapping
+  label: 'Carrier mapping'
+  mapping:
+    '*':
+      type: string
+      label: 'Shipmondo carrier code'
+
+commerce_checkout.commerce_checkout_pane.commerce_shipmondo_service_point:
+  type: commerce_checkout_pane_configuration
+  label: 'Shipmondo service point checkout pane'
+  mapping:
+    carrier_mapping:
+      type: commerce_shipmondo_checkout.carrier_mapping
+      label: 'Carrier mapping'

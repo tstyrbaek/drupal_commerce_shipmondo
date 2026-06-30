@@ -1,0 +1,7 @@
+commerce_shipmondo_checkout.service_points:
+  path: '/api/commerce-shipmondo/service-points'
+  defaults:
+    _controller: '\Drupal\commerce_shipmondo_checkout\Controller\ServicePointController::list'
+  requirements:
+    _access: 'TRUE'
+  methods: [GET]

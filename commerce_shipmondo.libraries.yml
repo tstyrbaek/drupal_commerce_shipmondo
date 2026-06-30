@@ -1,0 +1,17 @@
+open_label:
+  js:
+    js/commerce_shipmondo.js: {}
+  dependencies:
+    - core/drupal
+    - core/drupalSettings
+    - core/once
+
+create_label:
+  js:
+    js/create-label.js: {}
+  css:
+    component:
+      css/create-label.css: {}
+  dependencies:
+    - core/drupal
+    - core/once

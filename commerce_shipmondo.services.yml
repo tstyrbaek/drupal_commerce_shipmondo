@@ -1,0 +1,44 @@
+services:
+  commerce_shipmondo.api_client:
+    class: Drupal\commerce_shipmondo\Service\ShipmondoApiClient
+    arguments:
+      - '@http_client'
+      - '@config.factory'
+      - '@key.repository'
+      - '@logger.channel.commerce_shipmondo'
+      - '@cache.default'
+      - '@cache_tags.invalidator'
+
+  logger.channel.commerce_shipmondo:
+    parent: logger.channel_base
+    arguments: ['commerce_shipmondo']
+
+  commerce_shipmondo.shipping_method_mapping:
+    class: Drupal\commerce_shipmondo\Service\ShippingMethodMapping
+    arguments:
+      - '@config.factory'
+
+  commerce_shipmondo.order_shipment_mapper:
+    class: Drupal\commerce_shipmondo\Service\OrderShipmentMapper
+    arguments:
+      - '@config.factory'
+      - '@entity_type.manager'
+      - '@commerce_shipmondo.shipping_method_mapping'
+      - '@commerce_shipmondo.api_client'
+      - '@logger.channel.commerce_shipmondo'
+
+  commerce_shipmondo.tracking_url_builder:
+    class: Drupal\commerce_shipmondo\Service\TrackingUrlBuilder
+
+  commerce_shipmondo.label_manager:
+    class: Drupal\commerce_shipmondo\Service\ShipmondoLabelManager
+    arguments:
+      - '@commerce_shipmondo.api_client'
+      - '@commerce_shipmondo.order_shipment_mapper'
+      - '@commerce_shipmondo.tracking_url_builder'
+      - '@file.repository'
+      - '@file_system'
+      - '@entity_type.manager'
+      - '@logger.channel.commerce_shipmondo'
+      - '@messenger'
+      - '@config.factory'

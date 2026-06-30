@@ -1,0 +1,13 @@
+name: 'Commerce Shipmondo'
+type: module
+description: 'Creates Shipmondo shipping labels from Drupal Commerce orders.'
+core_version_requirement: '^10 || ^11'
+package: Commerce
+dependencies:
+  - commerce:commerce_order
+  - commerce_shipping:commerce_shipping
+  - profile:profile
+  - address:address
+  - key:key
+  - physical:physical
+  - drupal:file

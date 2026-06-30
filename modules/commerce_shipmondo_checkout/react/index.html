@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="da">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Shipmondo Service Point Selector – Dev</title>
+    <style>
+      body {
+        margin: 0;
+        font-family: system-ui, -apple-system, sans-serif;
+        background: #f9fafb;
+      }
+
+      #app {
+        max-width: 72rem;
+        margin: 0 auto;
+        padding: 1.5rem;
+      }
+
+      #selected {
+        max-width: 72rem;
+        margin: 0 auto;
+        padding: 0 1.5rem 1.5rem;
+        background: #f3f4f6;
+        border-radius: 0.5rem;
+        font-size: 0.875rem;
+        white-space: pre-wrap;
+        min-height: 4rem;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <pre id="selected">Vælg en pakkeshop for at se output her.</pre>
+    <script type="module">
+      import './src/index.js';
+
+      window.ShipmondoServicePointSelector.mount('#app', {
+        apiUrl: '/api/mock',
+        carrierCode: 'gls',
+        zipCode: '5000',
+        language: 'da',
+        mock: true,
+        showMap: true,
+        onSelect: (sp) => {
+          document.getElementById('selected').textContent = JSON.stringify(sp, null, 2);
+        },
+      });
+    </script>
+  </body>
+</html>

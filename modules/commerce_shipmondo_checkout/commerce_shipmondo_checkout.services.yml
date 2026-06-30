@@ -1,0 +1,38 @@
+services:
+  commerce_shipmondo_checkout.service_point:
+    class: Drupal\commerce_shipmondo_checkout\Service\ServicePointService
+    arguments:
+      - '@http_client'
+      - '@config.factory'
+      - '@key.repository'
+      - '@logger.channel.commerce_shipmondo_checkout'
+
+  commerce_shipmondo_checkout.service_point_carrier_mapping:
+    class: Drupal\commerce_shipmondo_checkout\Service\ServicePointCarrierMapping
+    arguments:
+      - '@entity_type.manager'
+
+  commerce_shipmondo_checkout.service_point_sync:
+    class: Drupal\commerce_shipmondo_checkout\Service\ServicePointOrderSync
+    arguments:
+      - '@commerce_shipmondo_checkout.service_point_carrier_mapping'
+
+  commerce_shipmondo_checkout.service_point_selector_settings:
+    class: Drupal\commerce_shipmondo_checkout\Service\ServicePointSelectorSettingsBuilder
+    arguments:
+      - '@commerce_shipmondo_checkout.service_point_carrier_mapping'
+      - '@commerce_shipmondo.shipping_method_mapping'
+      - '@commerce_shipmondo_checkout.service_point'
+      - '@language_manager'
+      - '@logger.channel.commerce_shipmondo_checkout'
+
+  commerce_shipmondo_checkout.service_point_shipment_subscriber:
+    class: Drupal\commerce_shipmondo_checkout\EventSubscriber\ServicePointShipmentSubscriber
+    arguments:
+      - '@commerce_shipmondo_checkout.service_point_sync'
+    tags:
+      - { name: event_subscriber }
+
+  logger.channel.commerce_shipmondo_checkout:
+    parent: logger.channel_base
+    arguments: ['commerce_shipmondo_checkout']

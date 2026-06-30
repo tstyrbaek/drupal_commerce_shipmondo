@@ -1,0 +1,129 @@
+.commerce-shipmondo-create-label-form.is-loading .form-actions .button,
+.commerce-shipmondo-create-label-form.is-loading .form-actions a {
+  opacity: 0.65;
+  pointer-events: none;
+}
+
+.commerce-shipmondo-create-label-status {
+  margin-top: 1.25rem;
+}
+
+.commerce-shipmondo-create-label-status[hidden] {
+  display: none !important;
+}
+
+.commerce-shipmondo-loader {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid #bfdbfe;
+  border-radius: 0.625rem;
+  background: linear-gradient(135deg, #eff6ff 0%, #f8fafc 100%);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+  animation: commerce-shipmondo-loader-in 0.3s ease-out;
+}
+
+.commerce-shipmondo-loader__spinner {
+  position: relative;
+  flex-shrink: 0;
+  width: 2.75rem;
+  height: 2.75rem;
+}
+
+.commerce-shipmondo-loader__spinner::before,
+.commerce-shipmondo-loader__spinner::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 3px solid transparent;
+}
+
+.commerce-shipmondo-loader__spinner::before {
+  border-top-color: #2563eb;
+  border-right-color: #2563eb;
+  animation: commerce-shipmondo-spin 0.9s cubic-bezier(0.5, 0.1, 0.4, 0.9) infinite;
+}
+
+.commerce-shipmondo-loader__spinner::after {
+  inset: 0.45rem;
+  border-bottom-color: #60a5fa;
+  border-left-color: #60a5fa;
+  animation: commerce-shipmondo-spin-reverse 1.2s cubic-bezier(0.5, 0.1, 0.4, 0.9) infinite;
+}
+
+.commerce-shipmondo-loader__content {
+  min-width: 0;
+}
+
+.commerce-shipmondo-loader__title {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #1e3a8a;
+  line-height: 1.4;
+}
+
+.commerce-shipmondo-loader__hint {
+  margin: 0.25rem 0 0;
+  font-size: 0.8125rem;
+  color: #475569;
+  line-height: 1.4;
+}
+
+.commerce-shipmondo-loader__dots span {
+  display: inline-block;
+  opacity: 0.25;
+  animation: commerce-shipmondo-dot-pulse 1.2s ease-in-out infinite;
+}
+
+.commerce-shipmondo-loader__dots span:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.commerce-shipmondo-loader__dots span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.commerce-shipmondo-loader__dots span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes commerce-shipmondo-loader-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.35rem);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes commerce-shipmondo-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes commerce-shipmondo-spin-reverse {
+  to {
+    transform: rotate(-360deg);
+  }
+}
+
+@keyframes commerce-shipmondo-dot-pulse {
+  0%,
+  80%,
+  100% {
+    opacity: 0.25;
+    transform: translateY(0);
+  }
+
+  40% {
+    opacity: 1;
+    transform: translateY(-0.1rem);
+  }
+}

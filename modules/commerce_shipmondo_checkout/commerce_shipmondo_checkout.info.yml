@@ -1,0 +1,10 @@
+name: 'Commerce Shipmondo Checkout'
+type: module
+description: 'Service point selector for Drupal Commerce checkout via Shipmondo Shipping Module API.'
+core_version_requirement: '^10 || ^11'
+package: Commerce
+dependencies:
+  - commerce_shipmondo:commerce_shipmondo
+  - commerce:commerce_checkout
+  - commerce_shipping:commerce_shipping
+  - drupal:field

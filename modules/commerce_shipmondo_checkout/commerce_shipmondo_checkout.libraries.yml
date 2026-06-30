@@ -1,0 +1,13 @@
+service_point_selector:
+  js:
+    js/service-point-selector.umd.js: {}
+    js/service-point-selector.js: {}
+  dependencies:
+    - core/drupal
+    - core/drupalSettings
+    - core/once
+
+service_point_formatter:
+  css:
+    component:
+      css/service-point-formatter.css: {}

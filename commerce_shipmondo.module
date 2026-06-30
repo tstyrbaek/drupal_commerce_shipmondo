@@ -1,0 +1,436 @@
+<?php
+
+/**
+ * @file
+ * Commerce Shipmondo module hooks.
+ */
+
+use Drupal\commerce_shipmondo\Exception\ShipmondoApiException;
+use Drupal\commerce_shipmondo\Plugin\Field\FieldFormatter\ShipmondoTrackingLinkFormatter;
+use Drupal\commerce_shipmondo\Service\ShipmondoApiClient;
+use Drupal\Core\Entity\EntityInterface;
+use Drupal\Core\Entity\Display\EntityViewDisplayInterface;
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Url;
+use Drupal\commerce_order\Entity\OrderInterface;
+use Drupal\commerce_shipping\Entity\ShipmentInterface;
+
+/**
+ * Implements hook_field_formatter_info_alter().
+ */
+function commerce_shipmondo_field_formatter_info_alter(array &$info): void {
+  if (isset($info['commerce_tracking_link'])) {
+    $info['commerce_tracking_link']['class'] = ShipmondoTrackingLinkFormatter::class;
+    $info['commerce_tracking_link']['provider'] = 'commerce_shipmondo';
+  }
+}
+
+/**
+ * Implements hook_entity_operation().
+ */
+function commerce_shipmondo_entity_operation(EntityInterface $entity): array {
+  if ($entity->getEntityTypeId() !== 'commerce_order' || !($entity instanceof OrderInterface)) {
+    return [];
+  }
+
+  if (!\Drupal::currentUser()->hasPermission('create commerce shipmondo labels')) {
+    return [];
+  }
+
+  /** @var \Drupal\commerce_shipmondo\Service\OrderShipmentMapper $mapper */
+  $mapper = \Drupal::service('commerce_shipmondo.order_shipment_mapper');
+  $operations = [];
+  $weight = 50;
+
+  foreach ($entity->get('shipments')->referencedEntities() as $shipment) {
+    if (!$shipment instanceof ShipmentInterface) {
+      continue;
+    }
+
+    $label = $shipment->label() ?: $shipment->id();
+    if ($mapper->hasLabel($shipment)) {
+      $operations['shipmondo_download_' . $shipment->id()] = [
+        'title' => count($entity->get('shipments')) > 1
+          ? t('Download Shipmondo label (@label)', ['@label' => $label])
+          : t('Download Shipmondo label'),
+        'url' => Url::fromRoute('commerce_shipmondo.download_label', [
+          'commerce_order' => $entity->id(),
+          'commerce_shipment' => $shipment->id(),
+        ], [
+          'attributes' => [
+            'target' => '_blank',
+            'rel' => 'noopener noreferrer',
+          ],
+        ]),
+        'weight' => $weight++,
+      ];
+      continue;
+    }
+
+    if ($mapper->canCreateLabel($shipment)) {
+      $operations['shipmondo_create_' . $shipment->id()] = [
+        'title' => count($entity->get('shipments')) > 1
+          ? t('Create Shipmondo label (@label)', ['@label' => $label])
+          : t('Create Shipmondo label'),
+        'url' => Url::fromRoute('commerce_shipmondo.create_label', [
+          'commerce_order' => $entity->id(),
+          'commerce_shipment' => $shipment->id(),
+        ]),
+        'weight' => $weight++,
+      ];
+    }
+  }
+
+  return $operations;
+}
+
+/**
+ * Implements hook_page_attachments().
+ */
+function commerce_shipmondo_page_attachments(array &$attachments): void {
+  $request = \Drupal::request();
+  $shipment_id = $request->query->get('open_shipmondo_label');
+  if (!$shipment_id) {
+    return;
+  }
+
+  $order = \Drupal::routeMatch()->getParameter('commerce_order');
+  if (!$order instanceof OrderInterface) {
+    return;
+  }
+
+  $attachments['#attached']['library'][] = 'commerce_shipmondo/open_label';
+  $attachments['#attached']['drupalSettings']['commerceShipmondo'] = [
+    'openLabelUrl' => Url::fromRoute('commerce_shipmondo.download_label', [
+      'commerce_order' => $order->id(),
+      'commerce_shipment' => $shipment_id,
+    ], ['absolute' => TRUE])->toString(),
+  ];
+}
+
+/**
+ * Adds Shipmondo actions next to shipment state transitions.
+ */
+function commerce_shipmondo_form_state_machine_transition_form_alter(array &$form, FormStateInterface $form_state, string $form_id): void {
+  $form_object = $form_state->getFormObject();
+  if (!method_exists($form_object, 'getEntity')) {
+    return;
+  }
+
+  $entity = $form_object->getEntity();
+  if (!$entity instanceof ShipmentInterface) {
+    return;
+  }
+
+  if (!\Drupal::currentUser()->hasPermission('create commerce shipmondo labels')) {
+    return;
+  }
+
+  /** @var \Drupal\commerce_shipmondo\Service\OrderShipmentMapper $mapper */
+  $mapper = \Drupal::service('commerce_shipmondo.order_shipment_mapper');
+
+  $order_id = (int) $entity->getOrderId();
+  if ($order_id <= 0) {
+    return;
+  }
+
+  // Only show the action if the shipment is eligible for Shipmondo.
+  if (!$mapper->canCreateLabel($entity) && !$mapper->hasLabel($entity)) {
+    return;
+  }
+
+  $route = $mapper->hasLabel($entity) ? 'commerce_shipmondo.download_label' : 'commerce_shipmondo.create_label';
+  $title = $mapper->hasLabel($entity) ? t('Shipmondo label') : t('Create Shipmondo label');
+
+  $form['actions']['commerce_shipmondo_label'] = [
+    '#type' => 'link',
+    '#title' => $title,
+    '#url' => Url::fromRoute($route, [
+      'commerce_order' => $order_id,
+      'commerce_shipment' => (int) $entity->id(),
+    ], [
+      'query' => \Drupal::destination()->getAsArray(),
+    ]),
+    '#attributes' => [
+      'class' => ['button'],
+    ],
+    '#weight' => 100,
+  ];
+  if ($mapper->hasLabel($entity)) {
+    $form['actions']['commerce_shipmondo_label']['#attributes']['target'] = '_blank';
+    $form['actions']['commerce_shipmondo_label']['#attributes']['rel'] = 'noopener noreferrer';
+  }
+}
+
+/**
+ * Implements hook_form_alter().
+ */
+function commerce_shipmondo_form_alter(array &$form, FormStateInterface $form_state, string $form_id): void {
+  if (!str_starts_with($form_id, 'commerce_shipping_method_')) {
+    return;
+  }
+
+  if (!\Drupal::currentUser()->hasPermission('administer commerce shipmondo')) {
+    return;
+  }
+
+  $form['shipmondo'] = [
+    '#type' => 'details',
+    '#title' => t('Shipmondo'),
+    '#open' => TRUE,
+    '#weight' => 50,
+    '#tree' => TRUE,
+  ];
+
+  /** @var \Drupal\commerce_shipping\Entity\ShippingMethodInterface $entity */
+  $entity = $form_state->getFormObject()->getEntity();
+  /** @var \Drupal\commerce_shipmondo\Service\ShippingMethodMapping $mapping_storage */
+  $mapping_storage = \Drupal::service('commerce_shipmondo.shipping_method_mapping');
+  $mapping = $mapping_storage->get($entity);
+  [$product_code, $service_codes] = commerce_shipmondo_shipping_method_values($form_state, $mapping);
+
+  $product_options = commerce_shipmondo_load_product_options();
+  $form['shipmondo']['product_code'] = commerce_shipmondo_build_product_code_element($product_code, $product_options);
+  if ($product_options !== []) {
+    $form['shipmondo']['product_code']['#ajax'] = [
+      'callback' => 'commerce_shipmondo_shipping_method_service_codes_ajax',
+      'wrapper' => 'commerce-shipmondo-service-codes-wrapper',
+      'event' => 'change',
+      'progress' => [
+        'type' => 'throbber',
+        'message' => t('Loading services...'),
+      ],
+    ];
+    $form['shipmondo']['product_code']['#limit_validation_errors'] = [
+      ['shipmondo', 'product_code'],
+    ];
+  }
+
+  $form['shipmondo']['service_codes_wrapper'] = [
+    '#type' => 'container',
+    '#attributes' => ['id' => 'commerce-shipmondo-service-codes-wrapper'],
+  ];
+  $form['shipmondo']['service_codes_wrapper']['service_codes'] = commerce_shipmondo_build_service_codes_element($product_code, $service_codes);
+
+  array_unshift($form['actions']['submit']['#submit'], 'commerce_shipmondo_shipping_method_form_submit');
+}
+
+/**
+ * AJAX callback that rebuilds service code options for the selected product.
+ */
+function commerce_shipmondo_shipping_method_service_codes_ajax(array &$form, FormStateInterface $form_state): array {
+  return $form['shipmondo']['service_codes_wrapper'];
+}
+
+/**
+ * Resolves Shipmondo field values from user input or stored mapping.
+ *
+ * @return array{0: string, 1: string}
+ *   Product code and comma-separated service codes.
+ */
+function commerce_shipmondo_shipping_method_values(FormStateInterface $form_state, array $mapping): array {
+  $shipmondo = $form_state->getValue('shipmondo') ?? [];
+  $product_code = trim((string) ($shipmondo['product_code'] ?? $mapping['product_code'] ?? ''));
+
+  $service_codes_raw = $shipmondo['service_codes_wrapper']['service_codes'] ?? $shipmondo['service_codes'] ?? NULL;
+  if ($service_codes_raw !== NULL) {
+    $service_codes = is_array($service_codes_raw)
+      ? ShipmondoApiClient::selectedServiceCodesToString($service_codes_raw)
+      : trim((string) $service_codes_raw);
+  }
+  else {
+    $service_codes = (string) ($mapping['service_codes'] ?? '');
+  }
+
+  return [$product_code, $service_codes];
+}
+
+/**
+ * Builds the Shipmondo product form element.
+ *
+ * @param array<string, string> $product_options
+ *
+ * @return array<string, mixed>
+ */
+function commerce_shipmondo_build_product_code_element(string $product_code, array $product_options): array {
+  if ($product_options !== []) {
+    if ($product_code !== '' && !isset($product_options[$product_code])) {
+      $product_options[$product_code] = $product_code;
+    }
+    return [
+      '#type' => 'select',
+      '#title' => t('Product'),
+      '#description' => t('Shipmondo shipping product for this method.'),
+      '#options' => ['' => t('- None -')] + $product_options,
+      '#default_value' => $product_code,
+      '#required' => FALSE,
+    ];
+  }
+
+  return [
+    '#type' => 'textfield',
+    '#title' => t('Product code'),
+    '#description' => t('Shipmondo product code, e.g. GLSDK_HD. Configure API credentials to load available products from Shipmondo.'),
+    '#default_value' => $product_code,
+    '#required' => FALSE,
+  ];
+}
+
+/**
+ * Builds the Shipmondo service codes form element.
+ *
+ * @return array<string, mixed>
+ */
+function commerce_shipmondo_build_service_codes_element(string $product_code, string $service_codes): array {
+  $service_options = commerce_shipmondo_load_service_options($product_code);
+  if ($service_options !== []) {
+    $defaults = ShipmondoApiClient::serviceCodesToDefaultValues($service_codes);
+    $defaults = array_intersect_key($defaults, $service_options);
+
+    return [
+      '#type' => 'checkboxes',
+      '#title' => t('Service codes'),
+      '#description' => t('Optional services for this shipping method. Leave empty to use defaults and API-required services only.'),
+      '#options' => $service_options,
+      '#default_value' => $defaults,
+    ];
+  }
+
+  return [
+    '#type' => 'textfield',
+    '#title' => t('Service codes'),
+    '#description' => $product_code === ''
+      ? t('Select a product to load available services from Shipmondo.')
+      : t('Comma-separated service codes, e.g. EMAIL_NT (required for many GLS products). Save a product code and configure API credentials to load available services from Shipmondo.'),
+    '#default_value' => $service_codes,
+  ];
+}
+
+/**
+ * Submit handler for shipping method Shipmondo settings.
+ */
+function commerce_shipmondo_shipping_method_form_submit(array &$form, FormStateInterface $form_state): void {
+  /** @var \Drupal\commerce_shipping\Entity\ShippingMethodInterface $entity */
+  $entity = $form_state->getFormObject()->getEntity();
+  $shipmondo = $form_state->getValue('shipmondo') ?? [];
+  $service_codes = $shipmondo['service_codes_wrapper']['service_codes'] ?? $shipmondo['service_codes'] ?? '';
+  if (is_array($service_codes)) {
+    $service_codes = ShipmondoApiClient::selectedServiceCodesToString($service_codes);
+  }
+  \Drupal::service('commerce_shipmondo.shipping_method_mapping')->set($entity, [
+    'product_code' => $shipmondo['product_code'] ?? '',
+    'service_codes' => $service_codes,
+  ]);
+}
+
+/**
+ * Returns sender and receiver country codes for Shipmondo catalog lookups.
+ *
+ * @return array{sender: string, receiver: string}
+ */
+function commerce_shipmondo_catalog_country_codes(): array {
+  $config = \Drupal::config('commerce_shipmondo.settings');
+  $sender = $config->get('sender') ?? [];
+
+  return [
+    'sender' => (string) ($sender['country_code'] ?? 'DK'),
+    'receiver' => (string) ($config->get('default_receiver_country_code') ?: 'DK'),
+  ];
+}
+
+/**
+ * Loads Shipmondo product options for the shipping method form.
+ *
+ * @return array<string, string>
+ */
+function commerce_shipmondo_load_product_options(): array {
+  $config = \Drupal::config('commerce_shipmondo.settings');
+  if (!$config->get('api_user_key') || !$config->get('api_key_key')) {
+    return [];
+  }
+
+  $countries = commerce_shipmondo_catalog_country_codes();
+  try {
+    return \Drupal::service('commerce_shipmondo.api_client')->getProductOptions(
+      $countries['sender'],
+      $countries['receiver'],
+    );
+  }
+  catch (ShipmondoApiException $exception) {
+    \Drupal::messenger()->addWarning(t('Could not load Shipmondo products: @message', [
+      '@message' => $exception->getMessage(),
+    ]));
+    return [];
+  }
+}
+
+/**
+ * Loads Shipmondo service options for a shipping method product code.
+ *
+ * @return array<string, string>
+ */
+function commerce_shipmondo_load_service_options(string $product_code): array {
+  if ($product_code === '') {
+    return [];
+  }
+
+  $config = \Drupal::config('commerce_shipmondo.settings');
+  if (!$config->get('api_user_key') || !$config->get('api_key_key')) {
+    return [];
+  }
+
+  $countries = commerce_shipmondo_catalog_country_codes();
+  try {
+    return \Drupal::service('commerce_shipmondo.api_client')->getServiceOptions(
+      $countries['sender'],
+      $countries['receiver'],
+      $product_code,
+    );
+  }
+  catch (ShipmondoApiException $exception) {
+    \Drupal::messenger()->addWarning(t('Could not load Shipmondo service codes: @message', [
+      '@message' => $exception->getMessage(),
+    ]));
+    return [];
+  }
+}
+
+/**
+ * Implements hook_entity_view_alter().
+ */
+function commerce_shipmondo_entity_view_alter(array &$build, EntityInterface $entity, EntityViewDisplayInterface $display): void {
+  if ($entity->getEntityTypeId() !== 'commerce_order' || ($build['#view_mode'] ?? '') !== 'default') {
+    return;
+  }
+
+  if (!\Drupal::currentUser()->hasPermission('create commerce shipmondo labels')) {
+    return;
+  }
+
+  $items = [];
+
+  foreach ($entity->get('shipments')->referencedEntities() as $shipment) {
+    if (!$shipment instanceof ShipmentInterface) {
+      continue;
+    }
+    $data = $shipment->getData('commerce_shipmondo') ?? [];
+    if (empty($data['shipment_id'])) {
+      continue;
+    }
+
+    $items[] = t('Shipment @label: Shipmondo #@id, tracking @tracking', [
+      '@label' => $shipment->label() ?: $shipment->id(),
+      '@id' => $data['shipment_id'],
+      '@tracking' => $data['tracking_number'] ?: t('n/a'),
+    ]);
+  }
+
+  if ($items) {
+    $build['shipmondo_labels'] = [
+      '#type' => 'item_list',
+      '#title' => t('Shipmondo labels'),
+      '#items' => $items,
+      '#weight' => 50,
+    ];
+  }
+}

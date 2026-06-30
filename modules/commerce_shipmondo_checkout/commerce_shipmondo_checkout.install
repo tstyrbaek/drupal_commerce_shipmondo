@@ -1,0 +1,355 @@
+<?php
+
+/**
+ * @file
+ * Install and update hooks for Commerce Shipmondo Checkout.
+ */
+
+use Drupal\Core\Entity\Entity\EntityFormDisplay;
+use Drupal\Core\Entity\Entity\EntityViewDisplay;
+use Drupal\field\Entity\FieldConfig;
+use Drupal\field\Entity\FieldStorageConfig;
+
+/**
+ * Implements hook_install().
+ */
+function commerce_shipmondo_checkout_install(): void {
+  _commerce_shipmondo_checkout_install_service_point_field('commerce_order', [
+    'region' => 'hidden',
+  ]);
+  _commerce_shipmondo_checkout_install_service_point_field('commerce_shipment', [
+    'region' => 'content',
+    'widget' => 'shipmondo_service_point_selector',
+    'description' => t('Select a pickup location for this shipment. The value is copied automatically from the order when carriers match.'),
+  ]);
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function commerce_shipmondo_checkout_uninstall(): void {
+  foreach (['commerce_order', 'commerce_shipment'] as $entity_type) {
+    _commerce_shipmondo_checkout_uninstall_service_point_field($entity_type);
+  }
+}
+
+/**
+ * Creates the Shipmondo service point field on commerce orders.
+ */
+function commerce_shipmondo_checkout_update_9002(): void {
+  _commerce_shipmondo_checkout_install_service_point_field('commerce_order', [
+    'region' => 'hidden',
+  ]);
+  _commerce_shipmondo_checkout_migrate_service_point_order_data();
+}
+
+/**
+ * Creates the Shipmondo service point field on commerce shipments.
+ */
+function commerce_shipmondo_checkout_update_9004(): void {
+  _commerce_shipmondo_checkout_install_service_point_field('commerce_shipment', [
+    'region' => 'content',
+    'widget' => 'string_textarea',
+    'description' => t('JSON service point data for this shipment. Populated automatically from the order when carriers match, or editable in the backend.'),
+  ]);
+  _commerce_shipmondo_checkout_backfill_service_point_shipments();
+}
+
+/**
+ * Switches shipment service point field to the interactive selector widget.
+ */
+function commerce_shipmondo_checkout_update_9005(): void {
+  _commerce_shipmondo_checkout_set_shipment_service_point_widget('shipmondo_service_point_selector');
+}
+
+/**
+ * Shows service point on shipments in order summaries and hides it on orders.
+ */
+function commerce_shipmondo_checkout_update_9006(): void {
+  foreach (array_keys(\Drupal::service('entity_type.bundle.info')->getBundleInfo('commerce_order')) as $bundle) {
+    _commerce_shipmondo_checkout_hide_order_service_point_view($bundle);
+  }
+  foreach (array_keys(\Drupal::service('entity_type.bundle.info')->getBundleInfo('commerce_shipment')) as $bundle) {
+    _commerce_shipmondo_checkout_configure_shipment_service_point_view($bundle);
+  }
+  _commerce_shipmondo_checkout_backfill_service_point_shipments();
+}
+
+/**
+ * Installs the service point field storage, bundles, and displays.
+ *
+ * @param string $entity_type
+ *   The target entity type ID.
+ * @param array<string, mixed> $form_options
+ *   Form display options. Supports region and description keys.
+ */
+function _commerce_shipmondo_checkout_install_service_point_field(string $entity_type, array $form_options = []): void {
+  $field_name = 'shipmondo_service_point';
+  $label = t('Pakkeshop (Shipmondo)');
+
+  if (!FieldStorageConfig::loadByName($entity_type, $field_name)) {
+    FieldStorageConfig::create([
+      'field_name' => $field_name,
+      'entity_type' => $entity_type,
+      'type' => 'string_long',
+      'cardinality' => 1,
+      'translatable' => FALSE,
+      'revisionable' => TRUE,
+    ])->save();
+  }
+
+  $bundles = array_keys(\Drupal::service('entity_type.bundle.info')->getBundleInfo($entity_type));
+  foreach ($bundles as $bundle) {
+    $field = FieldConfig::loadByName($entity_type, $bundle, $field_name);
+    if (!$field) {
+      $field_config = [
+        'field_name' => $field_name,
+        'entity_type' => $entity_type,
+        'bundle' => $bundle,
+        'label' => $label,
+        'required' => FALSE,
+      ];
+      if (!empty($form_options['description'])) {
+        $field_config['description'] = (string) $form_options['description'];
+      }
+      FieldConfig::create($field_config)->save();
+    }
+
+    $widget_type = (string) ($form_options['widget'] ?? 'string_textarea');
+    $form_component = [
+      'type' => $widget_type,
+      'weight' => 50,
+      'region' => (string) ($form_options['region'] ?? 'content'),
+      'settings' => $widget_type === 'string_textarea' ? ['rows' => 3] : [],
+    ];
+
+    $form_display = EntityFormDisplay::load("{$entity_type}.{$bundle}.default")
+      ?: EntityFormDisplay::create([
+        'targetEntityType' => $entity_type,
+        'bundle' => $bundle,
+        'mode' => 'default',
+        'status' => TRUE,
+      ]);
+    $form_display
+      ->setComponent($field_name, $form_component)
+      ->save();
+
+    if ($entity_type === 'commerce_order') {
+      _commerce_shipmondo_checkout_hide_order_service_point_view($bundle);
+    }
+    else {
+      _commerce_shipmondo_checkout_configure_shipment_service_point_view($bundle);
+    }
+  }
+}
+
+/**
+ * Hides the order-level service point from order view displays.
+ */
+function _commerce_shipmondo_checkout_hide_order_service_point_view(string $bundle): void {
+  $view_display = EntityViewDisplay::load("commerce_order.{$bundle}.default");
+  if (!$view_display) {
+    return;
+  }
+
+  $view_display->removeComponent('shipmondo_service_point')->save();
+}
+
+/**
+ * Configures shipment view displays for the service point formatter.
+ */
+function _commerce_shipmondo_checkout_configure_shipment_service_point_view(string $bundle): void {
+  $field_name = 'shipmondo_service_point';
+  $formatter = [
+    'type' => 'shipmondo_service_point',
+    'label' => 'above',
+    'region' => 'content',
+    'settings' => [],
+  ];
+
+  $default_display = EntityViewDisplay::load("commerce_shipment.{$bundle}.default")
+    ?: EntityViewDisplay::create([
+      'targetEntityType' => 'commerce_shipment',
+      'bundle' => $bundle,
+      'mode' => 'default',
+      'status' => TRUE,
+    ]);
+  $default_display
+    ->setComponent($field_name, $formatter + ['weight' => 50])
+    ->save();
+
+  $user_display = EntityViewDisplay::load("commerce_shipment.{$bundle}.user")
+    ?: EntityViewDisplay::create([
+      'targetEntityType' => 'commerce_shipment',
+      'bundle' => $bundle,
+      'mode' => 'user',
+      'status' => TRUE,
+    ]);
+  $user_display->setComponent($field_name, $formatter + ['weight' => 1]);
+
+  $tracking_component = $user_display->getComponent('tracking_code');
+  if (is_array($tracking_component)) {
+    $tracking_component['weight'] = 2;
+    $user_display->setComponent('tracking_code', $tracking_component);
+  }
+
+  $user_display->save();
+}
+
+/**
+ * Removes the service point field from an entity type.
+ */
+function _commerce_shipmondo_checkout_uninstall_service_point_field(string $entity_type): void {
+  $field_name = 'shipmondo_service_point';
+  $bundles = array_keys(\Drupal::service('entity_type.bundle.info')->getBundleInfo($entity_type));
+  foreach ($bundles as $bundle) {
+    $field = FieldConfig::loadByName($entity_type, $bundle, $field_name);
+    $field?->delete();
+  }
+
+  $storage = FieldStorageConfig::loadByName($entity_type, $field_name);
+  $storage?->delete();
+}
+
+/**
+ * Updates the shipment service point form widget.
+ */
+function _commerce_shipmondo_checkout_set_shipment_service_point_widget(string $widget_type): void {
+  $field_name = 'shipmondo_service_point';
+  $entity_type = 'commerce_shipment';
+  $bundles = array_keys(\Drupal::service('entity_type.bundle.info')->getBundleInfo($entity_type));
+  foreach ($bundles as $bundle) {
+    $form_display = EntityFormDisplay::load("{$entity_type}.{$bundle}.default");
+    if (!$form_display) {
+      continue;
+    }
+
+    $form_display
+      ->setComponent($field_name, [
+        'type' => $widget_type,
+        'weight' => 50,
+        'region' => 'content',
+        'settings' => [],
+      ])
+      ->save();
+  }
+}
+
+/**
+ * Copies order service points onto matching shipments.
+ */
+function _commerce_shipmondo_checkout_backfill_service_point_shipments(): void {
+  if (!FieldStorageConfig::loadByName('commerce_shipment', 'shipmondo_service_point')) {
+    return;
+  }
+
+  $sync = \Drupal::service('commerce_shipmondo_checkout.service_point_sync');
+  $order_storage = \Drupal::entityTypeManager()->getStorage('commerce_order');
+  foreach ($order_storage->loadMultiple($order_storage->getQuery()->accessCheck(FALSE)->execute()) as $order) {
+    $sync->syncOrderToShipments($order);
+  }
+}
+
+/**
+ * Copies legacy order data service points onto the order field.
+ */
+function _commerce_shipmondo_checkout_migrate_service_point_order_data(): void {
+  if (!FieldStorageConfig::loadByName('commerce_order', 'shipmondo_service_point')) {
+    return;
+  }
+
+  $storage = \Drupal::entityTypeManager()->getStorage('commerce_order');
+  foreach ($storage->loadMultiple($storage->getQuery()->accessCheck(FALSE)->execute()) as $order) {
+    if (!$order->hasField('shipmondo_service_point') || !$order->get('shipmondo_service_point')->isEmpty()) {
+      continue;
+    }
+    $legacy = $order->getData('commerce_shipmondo_service_point');
+    if (!is_array($legacy) || empty($legacy['id'])) {
+      continue;
+    }
+
+    $order->set('shipmondo_service_point', json_encode($legacy, JSON_UNESCAPED_UNICODE));
+    $order->save();
+  }
+}
+
+/**
+ * Normalizes carrier mapping keys to non-numeric storage keys.
+ */
+function commerce_shipmondo_checkout_update_9001(): void {
+  $storage = \Drupal::entityTypeManager()->getStorage('commerce_checkout_flow');
+  foreach ($storage->loadMultiple() as $checkout_flow) {
+    $plugin = $checkout_flow->getPlugin();
+    $configuration = $plugin->getConfiguration();
+    $pane_configuration = $configuration['panes']['commerce_shipmondo_service_point'] ?? NULL;
+    if (!is_array($pane_configuration)) {
+      continue;
+    }
+
+    $carrier_mapping = $pane_configuration['carrier_mapping'] ?? [];
+    if (!is_array($carrier_mapping) || $carrier_mapping === []) {
+      continue;
+    }
+
+    $normalized_mapping = _commerce_shipmondo_checkout_normalize_carrier_mapping($carrier_mapping);
+    if ($normalized_mapping === $carrier_mapping) {
+      continue;
+    }
+
+    $configuration['panes']['commerce_shipmondo_service_point']['carrier_mapping'] = $normalized_mapping;
+    $checkout_flow->set('configuration', $configuration);
+    $checkout_flow->save();
+  }
+}
+
+/**
+ * Converts legacy carrier mapping keys to prefixed storage keys.
+ *
+ * @param array<string|int, string> $mapping
+ *   Carrier mapping from checkout pane configuration.
+ *
+ * @return array<string, string>
+ *   Mapping keyed by shipping_method_{id}.
+ */
+function _commerce_shipmondo_checkout_normalize_carrier_mapping(array $mapping): array {
+  $normalized = [];
+  foreach (array_keys($mapping) as $key) {
+    if (str_starts_with((string) $key, 'shipping_method_')) {
+      return $mapping;
+    }
+  }
+
+  $methods = \Drupal::entityTypeManager()
+    ->getStorage('commerce_shipping_method')
+    ->loadByProperties(['status' => TRUE]);
+  uasort($methods, static function ($a, $b): int {
+    return strnatcmp((string) $a->id(), (string) $b->id());
+  });
+
+  $keys = array_keys($mapping);
+  if ($keys === range(0, count($mapping) - 1)) {
+    $index = 0;
+    foreach ($methods as $method) {
+      $carrier_code = trim((string) ($mapping[$index] ?? ''));
+      if ($carrier_code !== '') {
+        $normalized['shipping_method_' . $method->id()] = $carrier_code;
+      }
+      $index++;
+    }
+    return $normalized;
+  }
+
+  foreach ($mapping as $method_id => $carrier_code) {
+    if (!is_scalar($method_id)) {
+      continue;
+    }
+    $method_id = trim((string) $method_id);
+    $carrier_code = trim((string) $carrier_code);
+    if ($method_id === '' || $carrier_code === '') {
+      continue;
+    }
+    $normalized['shipping_method_' . $method_id] = $carrier_code;
+  }
+
+  return $normalized;
+}

@@ -1,0 +1,13 @@
+<div class="shipmondo-service-point">
+  {% if carrier_code %}
+    <div class="shipmondo-service-point__carrier">{{ carrier_code }}</div>
+  {% endif %}
+  {% if name %}
+    <div class="shipmondo-service-point__name">{{ name }}</div>
+  {% endif %}
+  {% if address or zipcode or city %}
+    <div class="shipmondo-service-point__address">
+      {% if address %}{{ address }}{% if zipcode or city %}, {% endif %}{% endif %}{{ zipcode }} {{ city }}
+    </div>
+  {% endif %}
+</div>

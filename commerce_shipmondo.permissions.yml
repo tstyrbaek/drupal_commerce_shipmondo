@@ -1,0 +1,7 @@
+administer commerce shipmondo:
+  title: 'Administer Commerce Shipmondo'
+  restrict access: true
+
+create commerce shipmondo labels:
+  title: 'Create Commerce Shipmondo labels'
+  description: 'Create shipping labels via the Shipmondo API from commerce orders.'

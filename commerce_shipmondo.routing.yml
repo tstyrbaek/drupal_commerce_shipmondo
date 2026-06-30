@@ -1,0 +1,39 @@
+commerce_shipmondo.settings:
+  path: '/admin/commerce/config/shipmondo'
+  defaults:
+    _form: '\Drupal\commerce_shipmondo\Form\ShipmondoSettingsForm'
+    _title: 'Shipmondo'
+  requirements:
+    _permission: 'administer commerce shipmondo'
+
+commerce_shipmondo.create_label:
+  path: '/admin/commerce/orders/{commerce_order}/shipmondo/create-label/{commerce_shipment}'
+  defaults:
+    _form: '\Drupal\commerce_shipmondo\Form\CreateLabelForm'
+    _title: 'Create Shipmondo label'
+  requirements:
+    _permission: 'create commerce shipmondo labels'
+    _entity_access: 'commerce_order.view'
+    commerce_shipment: \d+
+  options:
+    parameters:
+      commerce_order:
+        type: entity:commerce_order
+      commerce_shipment:
+        type: entity:commerce_shipment
+
+commerce_shipmondo.download_label:
+  path: '/admin/commerce/orders/{commerce_order}/shipmondo/label/{commerce_shipment}'
+  defaults:
+    _controller: '\Drupal\commerce_shipmondo\Controller\LabelDownloadController::download'
+    _title: 'Download Shipmondo label'
+  requirements:
+    _permission: 'create commerce shipmondo labels'
+    _entity_access: 'commerce_order.view'
+    commerce_shipment: \d+
+  options:
+    parameters:
+      commerce_order:
+        type: entity:commerce_order
+      commerce_shipment:
+        type: entity:commerce_shipment

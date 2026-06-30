@@ -1,0 +1,20 @@
+api_user_key: ''
+api_key_key: ''
+frontend_key_key: ''
+use_sandbox: true
+default_service_codes: 'EMAIL_NT'
+label_format: 'a4_pdf'
+own_agreement: false
+default_receiver_country_code: 'DK'
+receiver_phone_field: ''
+receiver_email_field: ''
+sender:
+  name: ''
+  address1: ''
+  address2: ''
+  zipcode: ''
+  city: ''
+  country_code: 'DK'
+  email: ''
+  telephone: ''
+  mobile: ''

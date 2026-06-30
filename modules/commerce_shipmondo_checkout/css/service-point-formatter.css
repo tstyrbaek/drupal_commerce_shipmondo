@@ -1,0 +1,22 @@
+.shipmondo-service-point {
+  border-left: 3px solid #00a650;
+  padding-left: 0.75rem;
+  margin: 0.5rem 0;
+}
+
+.shipmondo-service-point__carrier {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.shipmondo-service-point__name {
+  font-weight: 600;
+}
+
+.shipmondo-service-point__address {
+  color: #444;
+  font-size: 0.9rem;
+}
